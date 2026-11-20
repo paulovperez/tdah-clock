@@ -3,7 +3,7 @@ import type { Category, Priority, Task } from '../store/types'
 import { addDaysISO, at, formatDuration, humanizeDelta, relativeDay, toISO } from '../lib/date'
 import { describeRecurrence } from '../lib/recurrence'
 import { completeTask, deleteTask, moveToSomeday, postponeTask, startTask, toggleStep, uncompleteTask, updateTask } from '../store/actions'
-import { DaysPicker, Icon, Sheet, Switch, toast } from './ui'
+import { DaysPicker, Icon, Sheet, Switch, TimeField, toast } from './ui'
 import { uid } from '../lib/id'
 
 export const CATEGORIES: { id: Category; label: string; emoji: string }[] = [
@@ -91,7 +91,7 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
 
         <div className="grid2">
           <label className="field"><span>Data</span><input type="date" className="input" value={t.due ?? ''} onChange={(e) => patch({ due: e.target.value || null, someday: false })} /></label>
-          <label className="field"><span>Hora</span><input type="time" className="input" value={t.time ?? ''} onChange={(e) => patch({ time: e.target.value || null, due: t.due ?? (e.target.value ? today : null) })} /></label>
+          <div className="field"><span>Hora</span><TimeField label="Hora" allowClear value={t.time ?? null} onChange={(v) => patch({ time: v, due: t.due ?? (v ? today : null) })} /></div>
         </div>
 
         <div className="grid2">
@@ -154,7 +154,8 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
             ))}
             <form className="item" style={{ minHeight: 48 }} onSubmit={(e) => { e.preventDefault(); if (!step.trim()) return; patch({ steps: [...(t.steps ?? []), { id: uid(), text: step.trim(), done: false }] }); setStep('') }}>
               <Icon name="plus" size={18} />
-              <input className="capture-input" style={{ fontSize: 15.5, minHeight: 36 }} placeholder="Qual o primeiro passo minúsculo?" value={step} onChange={(e) => setStep(e.target.value)} />
+              <input className="capture-input" style={{ fontSize: 15.5, minHeight: 36 }} placeholder="Qual o primeiro passo minúsculo?" value={step} onChange={(e) => setStep(e.target.value)} enterKeyHint="done" aria-label="Novo passo" />
+              <button type="submit" className="btn small primary" disabled={!step.trim()}>Adicionar</button>
             </form>
           </div>
         </div>

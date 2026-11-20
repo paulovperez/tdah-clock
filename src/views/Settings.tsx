@@ -4,7 +4,7 @@ import { updateSettings } from '../store/actions'
 import { initialState } from '../store/defaults'
 import { askPermission, permission, showSystem } from '../lib/notify'
 import { chime, unlockAudio } from '../lib/sound'
-import { Icon, Seg, Switch, toast } from '../components/ui'
+import { Icon, Seg, Switch, TimeField, toast } from '../components/ui'
 import type { Settings as S } from '../store/types'
 
 export function Settings() {
@@ -37,13 +37,13 @@ export function Settings() {
   }
 
   const time = (label: string, key: keyof S, nullable = false) => (
-    <label className="row" style={{ justifyContent: 'space-between' }}>
-      <span style={{ fontWeight: 650 }}>{label}</span>
+    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <span style={{ fontWeight: 650, paddingTop: 10 }}>{label}</span>
       <span className="row">
         {nullable && <Switch label={label} on={!!s[key]} onChange={(v) => u({ [key]: v ? (key === 'morningBrief' ? '07:30' : key === 'eveningReview' ? '21:00' : '23:00') : null } as any)} />}
-        {(!nullable || s[key]) && <input type="time" className="input" style={{ width: 120, minHeight: 42 }} value={(s[key] as string) ?? ''} onChange={(e) => e.target.value && u({ [key]: e.target.value } as any)} />}
+        {(!nullable || s[key]) && <TimeField label={label} value={(s[key] as string) ?? null} onChange={(v) => v && u({ [key]: v } as any)} />}
       </span>
-    </label>
+    </div>
   )
 
   return (

@@ -195,7 +195,8 @@ export function LeavingSheet({ onClose }: { onClose: () => void }) {
             {editing && (
               <form className="item" onSubmit={(e) => { e.preventDefault(); addLeavingItem(newItem); setNewItem('') }}>
                 <Icon name="plus" size={18} />
-                <input className="capture-input" style={{ fontSize: 16 }} placeholder="Adicionar item (ex.: guarda-chuva)" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                <input className="capture-input" style={{ fontSize: 16 }} placeholder="Novo item (ex.: guarda-chuva)" value={newItem} onChange={(e) => setNewItem(e.target.value)} enterKeyHint="done" aria-label="Novo item" />
+                <button type="submit" className="btn small primary" disabled={!newItem.trim()}>Adicionar</button>
               </form>
             )}
           </div>

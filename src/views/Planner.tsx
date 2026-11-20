@@ -3,7 +3,7 @@ import { useStore } from '../store/store'
 import { planDay, blockLabel } from '../lib/planner'
 import { formatDuration, minToHHMM, nowHHMM } from '../lib/date'
 import { applyPlan } from '../store/actions'
-import { Empty, Icon, toast } from '../components/ui'
+import { Empty, Icon, TimeField, toast } from '../components/ui'
 
 export function Planner({ onDone }: { onDone: () => void }) {
   const tasks = useStore((s) => s.tasks)
@@ -30,7 +30,7 @@ export function Planner({ onDone }: { onDone: () => void }) {
       <div className="card row wrap" style={{ marginBottom: 14 }}>
         <span className="small"><strong>Agora:</strong> {nowHHMM()}</span>
         <span className="spacer" />
-        <label className="row small"><strong>Meu dia termina às</strong><input type="time" className="input" style={{ width: 120, minHeight: 40 }} value={end} onChange={(e) => setEnd(e.target.value || settings.dayEnd)} /></label>
+        <div className="row small" style={{ alignItems: 'flex-start' }}><strong style={{ paddingTop: 12 }}>Meu dia termina às</strong><TimeField label="Fim do dia" value={end} onChange={(v) => setEnd(v ?? settings.dayEnd)} /></div>
       </div>
 
       {plan.blocks.length === 0 && plan.overflow.length === 0 ? (

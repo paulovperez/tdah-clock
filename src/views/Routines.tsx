@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import type { Routine } from '../store/types'
+import { useRef, useState } from 'react'
+import type { Routine, RoutineStep } from '../store/types'
 import { useStore } from '../store/store'
 import { deleteRoutine, saveRoutine, startTimer, toggleRoutineStep } from '../store/actions'
 import { addDaysISO, toISO, WEEKDAYS_SHORT } from '../lib/date'
 import { uid } from '../lib/id'
-import { DaysPicker, Empty, Icon, Sheet, toast } from '../components/ui'
+import { DaysPicker, Empty, Icon, Sheet, Switch, TimePicker, toast } from '../components/ui'
 
 export function Routines({ onPlay }: { onPlay: (id: string) => void }) {
   const routines = useStore((s) => s.routines)
@@ -63,7 +63,21 @@ function RoutineEditor({ r, onClose }: { r: Partial<Routine>; onClose: () => voi
   const [x, setX] = useState<Partial<Routine>>({ steps: [], days: [], ...r })
   const [step, setStep] = useState('')
   const [mins, setMins] = useState('')
-  const save = () => { if (!x.name?.trim()) { toast('Dê um nome à rotina'); return } saveRoutine(x); onClose() }
+  const pendingStep = () => (step.trim() ? [{ id: uid(), text: step.trim(), minutes: Number(mins) || undefined }] : [])
+  const addStep = () => {
+    if (!step.trim()) return
+    setX({ ...x, steps: [...(x.steps ?? []), ...pendingStep()] })
+    setStep(''); setMins('')
+    stepInput.current?.focus()
+  }
+  const stepInput = useRef<HTMLInputElement>(null)
+  // a step typed but not yet added is saved too — never lose what was written
+  const save = () => {
+    if (!x.name?.trim()) { toast('Dê um nome à rotina'); return }
+    saveRoutine({ ...x, steps: [...(x.steps ?? []), ...pendingStep()] })
+    onClose()
+  }
+  const setStepField = (id: string, patch: Partial<RoutineStep>) => setX({ ...x, steps: x.steps!.map((y) => (y.id === id ? { ...y, ...patch } : y)) })
   return (
     <Sheet title={r.id ? 'Editar rotina' : 'Nova rotina'} onClose={onClose} actions={<button className="btn small primary" onClick={save}>Salvar</button>}>
       <div className="stack">
@@ -72,22 +86,25 @@ function RoutineEditor({ r, onClose }: { r: Partial<Routine>; onClose: () => voi
           <input className="input" placeholder="Nome (ex.: Antes de dormir)" value={x.name ?? ''} onChange={(e) => setX({ ...x, name: e.target.value })} aria-label="Nome" />
         </div>
         <div className="field"><span>Dias (vazio = todo dia)</span><DaysPicker days={x.days ?? []} onChange={(days) => setX({ ...x, days })} /></div>
-        <label className="field"><span>Lembrar às</span><input type="time" className="input" value={x.time ?? ''} onChange={(e) => setX({ ...x, time: e.target.value || null })} /></label>
+        <div className="field">
+          <div className="row"><span className="spacer" style={{ fontSize: 13, fontWeight: 750, color: 'var(--ink-3)' }}>Lembrar em um horário</span><Switch label="Lembrar em um horário" on={!!x.time} onChange={(v) => setX({ ...x, time: v ? '07:00' : null })} /></div>
+          {x.time && <TimePicker value={x.time} onChange={(time) => setX({ ...x, time })} />}
+        </div>
         <div className="field"><span>Passos</span>
           <div className="list">
             {(x.steps ?? []).map((s, i) => (
               <div className="item" key={s.id} style={{ minHeight: 50 }}>
                 <span className="muted num" style={{ width: 20 }}>{i + 1}</span>
-                <input className="capture-input" style={{ fontSize: 15.5, minHeight: 36 }} value={s.text} onChange={(e) => setX({ ...x, steps: x.steps!.map((y) => (y.id === s.id ? { ...y, text: e.target.value } : y)) })} aria-label={`Passo ${i + 1}`} />
-                {s.minutes ? <span className="tiny muted">{s.minutes}m</span> : null}
+                <input className="capture-input" style={{ fontSize: 15.5, minHeight: 36, minWidth: 0 }} value={s.text} onChange={(e) => setStepField(s.id, { text: e.target.value })} aria-label={`Passo ${i + 1}`} />
+                <input className="input" style={{ width: 58, minHeight: 36, padding: '4px 8px', textAlign: 'center' }} placeholder="min" inputMode="numeric" value={s.minutes ?? ''} onChange={(e) => setStepField(s.id, { minutes: Number(e.target.value.replace(/\D/g, '')) || undefined })} aria-label={`Minutos do passo ${i + 1}`} />
                 <button className="icon-btn sm" aria-label="Subir" disabled={i === 0} onClick={() => { const st = [...x.steps!]; [st[i - 1], st[i]] = [st[i], st[i - 1]]; setX({ ...x, steps: st }) }}>↑</button>
                 <button className="icon-btn sm" aria-label="Remover" onClick={() => setX({ ...x, steps: x.steps!.filter((y) => y.id !== s.id) })}><Icon name="x" size={16} /></button>
               </div>
             ))}
-            <form className="item" onSubmit={(e) => { e.preventDefault(); if (!step.trim()) return; setX({ ...x, steps: [...(x.steps ?? []), { id: uid(), text: step.trim(), minutes: Number(mins) || undefined }] }); setStep(''); setMins('') }}>
-              <Icon name="plus" size={18} />
-              <input className="capture-input" style={{ fontSize: 15.5, minHeight: 36 }} placeholder="Novo passo" value={step} onChange={(e) => setStep(e.target.value)} />
-              <input className="input" style={{ width: 70, minHeight: 38 }} placeholder="min" inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value.replace(/\D/g, ''))} aria-label="Minutos" />
+            <form className="item" style={{ flexWrap: 'wrap' }} onSubmit={(e) => { e.preventDefault(); addStep() }}>
+              <input ref={stepInput} className="capture-input" style={{ fontSize: 15.5, minHeight: 40, flex: '1 1 140px', minWidth: 0 }} placeholder="Novo passo (ex.: escovar os dentes)" value={step} onChange={(e) => setStep(e.target.value)} enterKeyHint="done" aria-label="Novo passo" />
+              <input className="input" style={{ width: 58, minHeight: 40, padding: '4px 8px', textAlign: 'center' }} placeholder="min" inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value.replace(/\D/g, ''))} aria-label="Minutos do novo passo" />
+              <button type="submit" className="btn small primary" disabled={!step.trim()}><Icon name="plus" size={16} /> Adicionar</button>
             </form>
           </div>
         </div>

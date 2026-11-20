@@ -370,3 +370,21 @@ mark { background: color-mix(in srgb, var(--amber) 35%, transparent); color: inh
 
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 420px) { .stats { grid-template-columns: 1fr 1fr; } .stats .stat:first-child { grid-column: span 2; } }
+
+/* ---------- pickers ---------- */
+.picker { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 0; }
+.picker-sep { font-size: 40px; font-weight: 300; color: var(--ink-3); padding-bottom: 6px; }
+.picker-col { display: flex; flex-direction: column; align-items: center; }
+.picker-col > span { font-size: 12px; font-weight: 750; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+.numfield { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.nf-btn { width: 76px; height: 40px; border-radius: 12px; background: var(--surface-2); color: var(--ink-2); font-size: 14px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.nf-btn:active { background: var(--surface-3); color: var(--ink); }
+.nf-val { width: 88px; height: 72px; text-align: center; font-size: 48px; font-weight: 300; letter-spacing: -.03em; border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); outline: none; padding: 0; }
+.nf-val:focus { border-color: var(--accent); }
+@media (max-width: 360px) { .nf-val { width: 70px; font-size: 40px; } .nf-btn { width: 64px; } }
+.timefield { display: flex; flex-direction: column; align-items: flex-end; }
+.tf-btn { min-height: 44px; min-width: 96px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-size: 18px; font-weight: 700; }
+.tf-btn[aria-expanded='true'] { border-color: var(--accent); }
+.tf-pop { width: 100%; min-width: 250px; margin-top: 8px; padding: 8px; border-radius: 16px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; }
+.field .timefield { align-items: stretch; }
+.field .timefield .tf-btn { width: 100%; text-align: left; }

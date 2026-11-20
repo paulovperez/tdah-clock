@@ -96,7 +96,8 @@ check('done from reminder completes task', !!s.tasks.find((t) => t.title === 'Li
 // 5. alarm: create, ring, snooze, ring again, dismiss
 await page.goto(URL + '#/clock')
 await page.getByRole('button', { name: 'Novo alarme' }).click()
-await page.fill('input[aria-label="Horário"]', '09:50')
+await page.getByLabel('hora', { exact: true }).fill('09')
+await page.getByLabel('minutos', { exact: true }).fill('50')
 await page.fill('input[placeholder^="Acordar, Sair"]', 'Sair para a faculdade')
 await page.locator('.sheet').getByRole('button', { name: 'Salvar' }).click()
 check('alarm listed', await page.getByText('Sair para a faculdade').isVisible())

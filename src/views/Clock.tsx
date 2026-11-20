@@ -5,7 +5,8 @@ import { deleteAlarm, saveAlarm, startTimer, pauseTimer, resumeTimer, removeTime
 import { formatClock, humanizeDelta, nowHHMM, toISO, WEEKDAYS_SHORT } from '../lib/date'
 import { nextAlarmAt } from '../lib/engine'
 import { previewSound, SOUND_LABELS, unlockAudio } from '../lib/sound'
-import { DaysPicker, Empty, Icon, Ring, Seg, Sheet, Switch, toast, useNow } from '../components/ui'
+import { DaysPicker, DurationPicker, Empty, Icon, Ring, Seg, Sheet, Switch, TimePicker, toast, useNow } from '../components/ui'
+import { hhmmToMin, minToHHMM } from '../lib/date'
 
 type Mode = 'alarms' | 'timer' | 'focus' | 'stopwatch'
 
@@ -75,7 +76,14 @@ function AlarmEditor({ alarm, routines, onClose }: { alarm: Partial<Alarm>; rout
   return (
     <Sheet title={alarm.id ? 'Editar alarme' : 'Novo alarme'} onClose={onClose} actions={<button className="btn small primary" onClick={save}>Salvar</button>}>
       <div className="stack">
-        <input type="time" className="input num" style={{ fontSize: 44, fontWeight: 300, textAlign: 'center', minHeight: 84 }} value={a.time} onChange={(e) => p({ time: e.target.value })} aria-label="Horário" />
+        <TimePicker value={a.time!} onChange={(time) => p({ time })} />
+        <div className="row wrap" style={{ justifyContent: 'center' }}>
+          {([['+1 min', 1], ['+5 min', 5], ['+10 min', 10], ['+1 h', 60]] as const).map(([l, m]) => (
+            <button key={l} className="chip" onClick={() => p({ time: minToHHMM(hhmmToMin(a.time!) + m) })}>{l}</button>
+          ))}
+          <button className="chip" onClick={() => p({ time: nowHHMM(new Date(Date.now() + 60000)) })}>Daqui a 1 min</button>
+        </div>
+        <p className="tiny muted" style={{ textAlign: 'center', margin: 0 }}>Toque em ▲▼ (segure para correr) ou toque no número e digite.</p>
         <label className="field"><span>Nome</span><input className="input" value={a.label} onChange={(e) => p({ label: e.target.value })} placeholder="Acordar, Sair para a faculdade…" /></label>
         <div className="row wrap">{['Acordar', 'Sair para a faculdade', 'Começar a estudar', 'Tirar a roupa da máquina', 'Tomar remédio'].map((l) => <button key={l} className="chip" onClick={() => p({ label: l })}>{l}</button>)}</div>
         <div className="field"><span>Repetir</span><DaysPicker days={a.days ?? []} onChange={(days) => p({ days })} /></div>
@@ -120,9 +128,9 @@ function timerLeft(t: Timer, now: number) {
 function Timers() {
   const timers = useStore((s) => s.timers).filter((t) => t.kind === 'timer')
   const now = useNow(250)
-  const [custom, setCustom] = useState('')
+  const [secs, setSecs] = useState(5 * 60)
   const [label, setLabel] = useState('')
-  const go = (m: number) => { if (m > 0) { unlockAudio(); startTimer(m, label || `Timer ${m} min`); setLabel(''); setCustom('') } }
+  const go = (sec: number) => { if (sec > 0) { unlockAudio(); startTimer(sec / 60, label || `Timer ${fmtDur(sec)}`); setLabel('') } }
   return (
     <>
       {timers.map((t) => {
@@ -138,12 +146,11 @@ function Timers() {
         )
       })}
       <div className="card stack">
-        <input className="input" placeholder="Para quê? (opcional — ex.: macarrão)" value={label} onChange={(e) => setLabel(e.target.value)} />
-        <div className="presets">{[1, 3, 5, 10, 15, 20, 30, 45, 60].map((m) => <button key={m} className="btn" onClick={() => go(m)}>{m < 60 ? `${m} min` : '1 h'}</button>)}</div>
-        <form className="row" onSubmit={(e) => { e.preventDefault(); go(Number(custom)) }}>
-          <input className="input" inputMode="decimal" placeholder="Minutos" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^\d.,]/g, '').replace(',', '.'))} />
-          <button className="btn primary" disabled={!Number(custom)}>Iniciar</button>
-        </form>
+        <input className="input" aria-label="Para quê?" placeholder="Para quê? (opcional — ex.: macarrão)" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <DurationPicker seconds={secs} onChange={setSecs} />
+        <button className="btn primary block" style={{ minHeight: 56, fontSize: 17 }} disabled={!secs} onClick={() => go(secs)}><Icon name="play" size={18} /> Iniciar · {fmtDur(secs)}</button>
+        <div className="tiny muted" style={{ textAlign: 'center' }}>Atalhos</div>
+        <div className="presets">{[30, 60, 180, 300, 600, 900, 1500, 1800, 3600].map((sec) => <button key={sec} className="btn small" onClick={() => go(sec)}>{fmtDur(sec)}</button>)}</div>
       </div>
     </>
   )
@@ -203,6 +210,11 @@ function Focus() {
       <p className="tiny muted">Dica: sessões curtas vencem a paralisia. 15 minutos já contam.</p>
     </div>
   )
+}
+
+function fmtDur(sec: number) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60
+  return [h ? `${h} h` : '', m ? `${m} min` : '', s ? `${s} s` : ''].filter(Boolean).join(' ') || '0 s'
 }
 
 function pie(frac: number, r: number) {

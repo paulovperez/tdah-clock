@@ -1,5 +1,5 @@
 /* TDAH Clock service worker: offline app shell + actionable notifications. */
-const CACHE = 'tdah-clock-v1'
+const CACHE = 'tdah-clock-v2'
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icon.svg'])).then(() => self.skipWaiting()))

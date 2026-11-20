@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type PointerEvent as RPointerEvent, type KeyboardEvent as RKeyboardEvent } from 'react'
 import { undo } from '../store/store'
 import { WEEKDAYS_SHORT } from '../lib/date'
 
@@ -70,24 +70,29 @@ export function useNow(intervalMs = 1000) {
 // ---------------- sheet ----------------
 export function Sheet({ title, onClose, children, actions }: { title?: ReactNode; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
+  // keep the latest onClose without re-running the mount effect on every render
+  // (re-running it stole focus back to the first field on each keystroke)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); closeRef.current() } }
     window.addEventListener('keydown', key)
     const first = ref.current?.querySelector<HTMLElement>('[autofocus], input, textarea, button')
-    first?.focus()
+    first?.focus({ preventScroll: true })
     document.body.style.overflow = 'hidden'
-    return () => { window.removeEventListener('keydown', key); document.body.style.overflow = ''; prev?.focus?.() }
-  }, [onClose])
+    return () => { window.removeEventListener('keydown', key); document.body.style.overflow = ''; prev?.focus?.({ preventScroll: true }) }
+  }, [])
+  const onClose_ = () => closeRef.current()
   return (
-    <div className="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose_() }}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} ref={ref}>
         <div className="grab" />
         {title !== undefined && (
           <div className="sheet-head">
             <h3>{title}</h3>
             {actions}
-            <button className="icon-btn sm" onClick={onClose} aria-label="Fechar"><Icon name="x" /></button>
+            <button className="icon-btn sm" onClick={onClose_} aria-label="Fechar"><Icon name="x" /></button>
           </div>
         )}
         {children}
@@ -174,4 +179,124 @@ export function Ring({ value, size = 54, stroke = 6, color = 'var(--accent)', tr
       {children}
     </svg>
   )
+}
+
+// ---------------- time & duration pickers (minute-by-minute, second-by-second) ----------------
+
+/** Repeats `fn` while the button is held (tap = one step). */
+function useHold(fn: () => void) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fnRef = useRef(fn)
+  fnRef.current = fn
+  const stop = () => { if (timer.current) clearTimeout(timer.current); timer.current = null }
+  const start = () => {
+    stop()
+    fnRef.current()
+    let delay = 380
+    const loop = () => { fnRef.current(); delay = Math.max(45, delay * 0.8); timer.current = setTimeout(loop, delay) }
+    timer.current = setTimeout(loop, delay)
+  }
+  useEffect(() => stop, [])
+  return {
+    onPointerDown: (e: RPointerEvent) => { e.preventDefault(); start() },
+    onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop,
+    onKeyDown: (e: RKeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fnRef.current() } },
+  }
+}
+
+/** A big 2-digit number you can step with ▲▼ (hold to go fast), type into, or scroll. */
+export function NumField({ value, min, max, onChange, label, wrap = true, step = 1 }: { value: number; min: number; max: number; onChange: (v: number) => void; label: string; wrap?: boolean; step?: number }) {
+  const [text, setText] = useState<string | null>(null)
+  const valRef = useRef(value)
+  valRef.current = value
+  const bump = (d: number) => {
+    setText(null) // stepping ends any in-progress typing (its value was already applied live)
+    let v = valRef.current + d
+    if (v > max) v = wrap ? min : max
+    if (v < min) v = wrap ? max : min
+    valRef.current = v
+    onChange(v)
+  }
+  const up = useHold(() => bump(step))
+  const down = useHold(() => bump(-step))
+  // typed digits apply immediately, so tapping ▲, Salvar, etc. right after typing never loses them
+  const type = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(-2) // last two digits win, like a digital clock
+    setText(digits)
+    const n = parseInt(digits, 10)
+    if (!isNaN(n)) { const v = Math.min(max, Math.max(min, n)); valRef.current = v; onChange(v) }
+  }
+  const commit = () => setText(null)
+  return (
+    <div className="numfield">
+      <button type="button" className="nf-btn" aria-label={`Aumentar ${label}`} {...up}>▲</button>
+      <input className="nf-val num" inputMode="numeric" aria-label={label}
+        value={text ?? String(value).padStart(2, '0')}
+        onFocus={(e) => { setText(''); e.target.select() }}
+        onClick={(e) => { if (text === null) { setText(''); e.currentTarget.select() } }}
+        onChange={(e) => type(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() }
+          if (e.key === 'ArrowUp') { e.preventDefault(); bump(step) }
+          if (e.key === 'ArrowDown') { e.preventDefault(); bump(-step) }
+        }}
+        onWheel={(e) => { if (document.activeElement === e.currentTarget) bump(e.deltaY < 0 ? step : -step) }} />
+      <button type="button" className="nf-btn" aria-label={`Diminuir ${label}`} {...down}>▼</button>
+    </div>
+  )
+}
+
+/** HH:MM picker with 1-minute precision. */
+export function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, m] = (value || '07:00').split(':').map(Number)
+  const set = (hh: number, mm: number) => onChange(`${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`)
+  return (
+    <div className="picker" role="group" aria-label="Horário">
+      <NumField label="hora" value={h} min={0} max={23} onChange={(v) => set(v, m)} />
+      <span className="picker-sep">:</span>
+      <NumField label="minutos" value={m} min={0} max={59} onChange={(v) => set(h, v)} />
+    </div>
+  )
+}
+
+/** Hours / minutes / seconds picker. Value in seconds. */
+export function DurationPicker({ seconds, onChange }: { seconds: number; onChange: (s: number) => void }) {
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60
+  const set = (hh: number, mm: number, ss: number) => onChange(hh * 3600 + mm * 60 + ss)
+  return (
+    <div className="picker" role="group" aria-label="Duração">
+      <div className="picker-col"><NumField label="horas" value={h} min={0} max={23} wrap={false} onChange={(v) => set(v, m, s)} /><span>h</span></div>
+      <span className="picker-sep">:</span>
+      <div className="picker-col"><NumField label="minutos" value={m} min={0} max={59} onChange={(v) => set(h, v, s)} /><span>min</span></div>
+      <span className="picker-sep">:</span>
+      <div className="picker-col"><NumField label="segundos" value={s} min={0} max={59} onChange={(v) => set(h, m, v)} /><span>seg</span></div>
+    </div>
+  )
+}
+
+/** Compact time field: shows "07:30"; tap to open an inline minute-precise picker. */
+export function TimeField({ value, onChange, label, allowClear }: { value: string | null; onChange: (v: string | null) => void; label: string; allowClear?: boolean }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="timefield">
+      <div className="row" style={{ gap: 6 }}>
+        <button type="button" className="tf-btn num" aria-label={`${label}: ${value ?? 'sem horário'}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+          {value ?? '— : —'}
+        </button>
+        {allowClear && value && <button type="button" className="icon-btn sm" aria-label={`Remover ${label}`} onClick={() => { onChange(null); setOpen(false) }}><Icon name="x" size={16} /></button>}
+      </div>
+      {open && (
+        <div className="tf-pop">
+          <TimePicker value={value ?? nowRounded()} onChange={onChange} />
+          <button type="button" className="btn small primary block" onClick={() => { if (!value) onChange(nowRounded()); setOpen(false) }}>Ok</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function nowRounded() {
+  const d = new Date(Date.now() + 60 * 60000)
+  return `${String(d.getHours()).padStart(2, '0')}:00`
 }
