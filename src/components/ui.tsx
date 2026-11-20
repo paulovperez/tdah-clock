@@ -67,6 +67,38 @@ export function useNow(intervalMs = 1000) {
   return now
 }
 
+// ---------------- Android/browser back button closes overlays ----------------
+// Each open overlay pushes a history entry. Back pops the top overlay instead of
+// changing the page underneath. Closing an overlay from the UI removes its entry.
+const overlayStack: { id: number; close: () => void }[] = []
+let overlaySeq = 0
+let ignorePops = 0
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    if (ignorePops > 0) { ignorePops--; return }
+    const top = overlayStack.pop()
+    top?.close()
+  })
+}
+
+export function useBackClose(close: () => void) {
+  const closeRef = useRef(close)
+  closeRef.current = close
+  useEffect(() => {
+    const id = ++overlaySeq
+    history.pushState({ ...(history.state ?? {}), tdahOverlay: id }, '')
+    overlayStack.push({ id, close: () => closeRef.current() })
+    return () => {
+      const i = overlayStack.findIndex((x) => x.id === id)
+      if (i < 0) return // already closed by the back button
+      overlayStack.splice(i, 1)
+      // remove our history entry only if it is still the current one
+      // (if the user navigated to another tab meanwhile, leave history alone)
+      if (history.state?.tdahOverlay === id) { ignorePops++; history.back() }
+    }
+  }, [])
+}
+
 // ---------------- sheet ----------------
 export function Sheet({ title, onClose, children, actions }: { title?: ReactNode; onClose: () => void; children: ReactNode; actions?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -74,6 +106,7 @@ export function Sheet({ title, onClose, children, actions }: { title?: ReactNode
   // (re-running it stole focus back to the first field on each keystroke)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  useBackClose(() => closeRef.current())
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); closeRef.current() } }

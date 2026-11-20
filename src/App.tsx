@@ -57,7 +57,11 @@ export function App() {
 
   const go = useCallback((r: string) => {
     const next = (ROUTES.includes(r as Route) ? r : 'today') as Route
-    if (location.hash !== '#/' + next) location.hash = '/' + next
+    if (location.hash !== '#/' + next) {
+      // leaving from inside an overlay (e.g. the Mais menu): replace its history entry so Back goes to the previous page
+      if (history.state?.tdahOverlay) history.replaceState(null, '', '#/' + next)
+      else location.hash = '/' + next
+    }
     setRoute(next)
     setMore(false)
     window.scrollTo({ top: 0 })

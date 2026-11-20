@@ -5,7 +5,7 @@ import { deleteAlarm, saveAlarm, startTimer, pauseTimer, resumeTimer, removeTime
 import { formatClock, humanizeDelta, nowHHMM, toISO, WEEKDAYS_SHORT } from '../lib/date'
 import { nextAlarmAt } from '../lib/engine'
 import { previewSound, SOUND_LABELS, unlockAudio } from '../lib/sound'
-import { DaysPicker, DurationPicker, Empty, Icon, Ring, Seg, Sheet, Switch, TimePicker, toast, useNow } from '../components/ui'
+import { DaysPicker, DurationPicker, Empty, Icon, Ring, Seg, Sheet, Switch, TimePicker, toast, useBackClose, useNow } from '../components/ui'
 import { hhmmToMin, minToHHMM } from '../lib/date'
 
 type Mode = 'alarms' | 'timer' | 'focus' | 'stopwatch'
@@ -251,6 +251,7 @@ function StopwatchView() {
 
 // ---------------- bedside ----------------
 function Bedside({ onClose }: { onClose: () => void }) {
+  useBackClose(onClose)
   const now = useNow(1000)
   const alarms = useStore((s) => s.alarms)
   useEffect(() => {
