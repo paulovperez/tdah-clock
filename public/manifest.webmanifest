@@ -1,0 +1,18 @@
+{
+  "name": "TDAH Clock",
+  "short_name": "TDAH Clock",
+  "description": "Seu cérebro externo: lembretes, alarmes, tarefas e rotinas.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101216",
+  "theme_color": "#101216",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Capturar", "url": "./?capture=1" },
+    { "name": "Vou sair de casa", "url": "./?leaving=1" }
+  ]
+}
